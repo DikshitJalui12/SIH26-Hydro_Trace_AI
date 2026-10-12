@@ -1,0 +1,29 @@
+{
+  "type": "Feature",
+  "properties": {
+    "slick_id": "SLICK-SAR-20260918-0042",
+    "detection_time": "2026-09-18T06:30:00Z",
+    "sensor": "Sentinel-1B SAR",
+    "instrument_mode": "IW_GRDH_1SDV",
+    "polarization": "VV+VH",
+    "confidence_score": 0.96,
+    "slick_type": "Mineral_Oil_Illegal_Discharge",
+    "estimated_volume_m3": 12.8
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [68.1250, 22.4500],
+        [68.1320, 22.4580],
+        [68.1480, 22.4720],
+        [68.1550, 22.4760],
+        [68.1590, 22.4740],
+        [68.1510, 22.4650],
+        [68.1350, 22.4520],
+        [68.1270, 22.4470],
+        [68.1250, 22.4500]
+      ]
+    ]
+  }
+}

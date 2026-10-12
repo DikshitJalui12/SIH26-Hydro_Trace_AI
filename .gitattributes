@@ -1,0 +1,31 @@
+# ==============================================================================
+# HydroTrace-AI Maritime Command Platform - .gitattributes
+# ==============================================================================
+
+# Auto-detect text files and normalize line endings to LF on commit
+* text=auto eol=lf
+
+# Explicit Text Formats
+*.py text diff=python eol=lf
+*.js text diff=javascript eol=lf
+*.css text diff=css eol=lf
+*.html text diff=html eol=lf
+*.json text diff=json eol=lf
+*.md text diff=markdown eol=lf
+*.yml text diff=yaml eol=lf
+*.yaml text diff=yaml eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Binary Formats (Preserve verbatim, disable text diffs)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.pth binary
+*.tif binary
+*.tiff binary
+*.sqlite binary
+*.duckdb binary

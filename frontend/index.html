@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HydroTrace-AI Maritime Command Platform | Naval Geospatial Operations</title>
+  <link rel="stylesheet" href="/static/styles/theme.css">
+  
+  <!-- MapLibre GL CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  
+  <!-- Deck.gl Standalone Bundle -->
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+</head>
+<body>
+  <!-- ====================================================================
+       MASTER FULL-WIDTH TOP NAVBAR (100vw, Always Visible Above Sidebars)
+       ==================================================================== -->
+  <header id="master-top-navbar">
+    <div class="nav-brand-section">
+      <div class="radar-pulse-icon"></div>
+      <div class="nav-brand-info">
+        <div class="nav-brand-title">HydroTrace-AI <span class="nav-version-badge">v4.0 PROD</span></div>
+        <div class="nav-brand-subtitle">MARITIME FORENSICS & SATELLITE COMMAND</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs-group">
+      <button class="nav-tab-btn active" data-view="command-console">
+        <span class="nav-tab-icon">⚓</span>
+        <span class="nav-tab-label">4D Command Console</span>
+      </button>
+      <button class="nav-tab-btn" data-view="satellite-weather">
+        <span class="nav-tab-icon">🛰️</span>
+        <span class="nav-tab-label">Satellite & Weather Intel</span>
+        <span class="nav-tab-badge">LIVE</span>
+      </button>
+      <button class="nav-tab-btn" data-view="ais-fleet">
+        <span class="nav-tab-icon">🚢</span>
+        <span class="nav-tab-label">Live AIS Fleet Radar</span>
+        <span class="nav-tab-badge live-pulse-badge">6 TRACKS</span>
+      </button>
+      <button class="nav-tab-btn" data-view="hindcast-lab">
+        <span class="nav-tab-icon">⚙️</span>
+        <span class="nav-tab-label">Hindcast Laboratory</span>
+      </button>
+      <button class="nav-tab-btn" data-view="legal-audit">
+        <span class="nav-tab-icon">⚖️</span>
+        <span class="nav-tab-label">Legal Audit & Reports</span>
+        <span class="nav-tab-badge verified-badge">SEALED</span>
+      </button>
+    </nav>
+
+    <!-- Operational Telemetry & RBAC Operator Profile -->
+    <div class="nav-telemetry-section">
+      <div class="nav-clock-pill">
+        <span class="live-dot-green"></span>
+        <span id="nav-utc-clock">2026-09-19 06:37:00 UTC</span>
+      </div>
+      <div class="nav-status-pill">
+        <span style="color: var(--text-muted);">STATUS:</span>
+        <span style="color: var(--accent-cyan); font-weight: 700;">OPERATIONAL</span>
+      </div>
+      <button id="nav-auth-role-btn" class="nav-role-btn" title="Click to switch RBAC operator role">
+        <span>🛡️</span>
+        <span id="nav-operator-label">COMMANDER (Capt. Vikramaditya)</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="app-root">
+    
+    <!-- ====================================================================
+         VIEW 1: 4D Command Console (Interactive Map, Hindcast & Suspect Dossier)
+         ==================================================================== -->
+    <section id="view-command-console" class="operational-view active">
+      
+      <!-- COLUMN 1: Left Sidebar - Incident Feed & Ingestion Queue (320px) -->
+      <aside id="sidebar">
+
+      <div class="brand-header">
+        <div class="brand-badge">
+          <div class="radar-pulse-icon"></div>
+          <div>
+            <div class="brand-title">HydroTrace-AI</div>
+            <div class="brand-subtitle">MARITIME COMMAND V4.0</div>
+          </div>
+        </div>
+        <button id="toggle-sidebar-btn" class="control-btn" title="Toggle Sidebar (Esc)" style="padding: 4px 6px;">◀</button>
+      </div>
+
+      <!-- Ingestion Search & Filters -->
+      <div class="search-filter-box">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="incident-search-input" class="search-input" placeholder="Search UUID, Port, or EEZ..." />
+        </div>
+        <div class="eez-filter-chips">
+          <button class="filter-chip active" data-eez="">All EEZ Zones</button>
+          <button class="filter-chip" data-eez="Andaman">Andaman Sea</button>
+          <button class="filter-chip" data-eez="Arabian">Arabian Sea</button>
+          <button class="filter-chip" data-eez="Bay of Bengal">Bay of Bengal</button>
+          <button class="filter-chip" data-eez="Lakshadweep">Lakshadweep</button>
+        </div>
+      </div>
+
+      <!-- Live Acquisition Passes List -->
+      <div id="incident-feed-container" class="incident-feed-scroll">
+        <!-- Dynamic incident cards injected by app.js -->
+        <div style="color: var(--text-muted); text-align: center; padding: 20px;">
+          Connecting to Sentinel-1 ingestion feed...
+        </div>
+      </div>
+
+      <!-- Operator Status Footer -->
+      <div style="padding: 10px 14px; background: #0A0E17; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+          <span id="current-operator-name" style="color: #FFFFFF; font-weight: 600;">Capt. Vikramaditya</span>
+        </div>
+        <button id="auth-role-btn" class="filter-chip" style="font-size: 9.5px; border-color: var(--accent-cyan); color: var(--accent-cyan);">ROLE: COMMANDER</button>
+      </div>
+    </aside>
+
+    <!-- ====================================================================
+         COLUMN 2: Center Viewport - Geospatial Operations Canvas
+         ==================================================================== -->
+    <main id="center-viewport">
+      <!-- Full-Viewport WebGL Map Container -->
+      <div id="map-canvas-container"></div>
+      
+      <!-- Floating Expand Tabs for Collapsed Panels -->
+      <button id="sidebar-expand-tab" class="floating-tab-btn" style="display: none;">
+        <span>▶</span>
+        <span>Incidents Feed</span>
+      </button>
+
+      <button id="dossier-expand-tab" class="floating-tab-btn" style="display: none;">
+        <span>Forensic Dossier</span>
+        <span>◀</span>
+      </button>
+
+      <!-- Floating Top Bar -->
+      <div class="floating-top-bar">
+        <!-- Coordinate HUD -->
+        <div class="hud-pill-group">
+          <div class="coordinate-hud">
+            <span>📍</span>
+            <span id="hud-coordinates">LAT 01°12'36"N | LON 103°16'12"E</span>
+          </div>
+          <div class="hud-divider"></div>
+          <div style="font-family: var(--text-mono); font-size: 10.5px; color: var(--text-secondary);">
+            DATUM: WGS84 / EPSG:4326
+          </div>
+        </div>
+
+        <!-- Indian EEZ Quadrant Quick-Zoom Navigation -->
+        <div class="hud-pill-group">
+          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">EEZ Zoom:</span>
+          <button class="eez-quick-zoom-btn active" data-quadrant="active_slick">🎯 Active Slick</button>
+          <button class="eez-quick-zoom-btn" data-quadrant="arabian_sea">Arabian Sea</button>
+          <button class="eez-quick-zoom-btn" data-quadrant="bay_of_bengal">Bay of Bengal</button>
+          <button class="eez-quick-zoom-btn" data-quadrant="lakshadweep">Lakshadweep</button>
+          <button class="eez-quick-zoom-btn" data-quadrant="andaman_sea">Andaman & Nicobar</button>
+        </div>
+
+        <!-- Sensor Layer Switcher -->
+        <div class="sensor-switcher">
+          <button class="sensor-toggle-btn active" data-sensor="sar_vv">SAR VV Radar</button>
+          <button class="sensor-toggle-btn" data-sensor="sar_vh">SAR VH</button>
+          <button class="sensor-toggle-btn" data-sensor="optical_rgb">Sentinel-2 RGB</button>
+          <button class="sensor-toggle-btn" data-sensor="currents">CMEMS Currents</button>
+          <button class="sensor-toggle-btn" data-sensor="wind">ERA5 Wind</button>
+        </div>
+      </div>
+
+      <!-- Map Overlays Legend -->
+      <div class="map-legend-overlay">
+        <div class="legend-title">Tactical Map Layers</div>
+        <div class="legend-entry">
+          <span class="legend-symbol" style="background: rgba(239, 68, 68, 0.45); border: 2px solid #DC2626;"></span>
+          <span>Sentinel-1 Slick Vector (t=T)</span>
+        </div>
+        <div class="legend-entry">
+          <span class="legend-symbol" style="background: rgba(245, 158, 11, 0.15); border: 2px dashed #F59E0B;"></span>
+          <span>95% Origin Uncertainty Ellipse (t=t₀)</span>
+        </div>
+        <div class="legend-entry">
+          <span class="legend-symbol" style="background: var(--accent-cyan); height: 3px;"></span>
+          <span>Lagrangian Particle Advection Stream</span>
+        </div>
+        <div class="legend-entry">
+          <span class="legend-symbol" style="background: var(--culprit-coral); border-radius: 50%;"></span>
+          <span>Culprit Vessel Track (Attribution >70%)</span>
+        </div>
+        <div class="legend-entry">
+          <span class="legend-symbol" style="background: repeating-linear-gradient(45deg, #EAB308, #EAB308 3px, #0B0F17 3px, #0B0F17 6px);"></span>
+          <span>AIS Transponder Silence (Dark Zone)</span>
+        </div>
+      </div>
+
+      <!-- Floating Bottom Deck: 4D Time Scrubber & Simulation Bar -->
+      <div class="floating-bottom-deck">
+        <div class="deck-header-row">
+          <!-- Dual-Mode Toggle -->
+          <div class="dual-mode-toggle">
+            <button id="mode-hindcast-btn" class="mode-btn active">◀ Hindcast Rewind (-dt)</button>
+            <button id="mode-forecast-btn" class="mode-btn">Forward Boom (+dt) ▶</button>
+          </div>
+
+          <div class="timeline-info">
+            <span style="color: var(--accent-cyan);">SIMULATION TIME (t):</span>
+            <span id="simulation-time-display">2026-09-18 04:15:00 UTC</span>
+            <span style="color: var(--text-muted);">|</span>
+            <span id="simulation-offset-display" style="color: var(--uncertainty-amber); font-weight: 700;">-02h 15m</span>
+          </div>
+
+          <!-- Simulation Particles Count -->
+          <div style="font-family: var(--text-mono); font-size: 11px; color: var(--text-secondary);">
+            PARTICLES: <b style="color: #FFFFFF;">10,000 Stochastic RK4</b>
+          </div>
+        </div>
+
+        <!-- 4D Scrubber Range Input -->
+        <div class="scrubber-slider-container">
+          <input type="range" id="time-scrubber-slider" class="scrubber-range-input" min="0" max="100" value="50" step="1" />
+        </div>
+
+        <div class="deck-controls-row">
+          <div class="playback-controls">
+            <button id="play-pause-btn" class="control-btn" title="Spacebar">▶ Play (Space)</button>
+            <button id="reset-extent-btn" class="control-btn" title="Reset extent to slick (R)">⟲ Reset (R)</button>
+            <button id="fullscreen-btn" class="control-btn" title="Toggle Fullscreen (F)">⛶ Fullscreen (F)</button>
+          </div>
+
+          <!-- Simulation Speed Multiplier Chips -->
+          <div class="speed-chips">
+            <button class="speed-chip active" data-speed="1">1x</button>
+            <button class="speed-chip" data-speed="2">2x</button>
+            <button class="speed-chip" data-speed="5">5x</button>
+            <button class="speed-chip" data-speed="10">10x</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hover Tooltip -->
+      <div id="map-tooltip" class="map-hover-tooltip" style="display: none;"></div>
+    </main>
+
+    <!-- ====================================================================
+         COLUMN 3: Right Drawer - Forensic Suspect Dossier (420px)
+         ==================================================================== -->
+    <aside id="dossier-drawer">
+      <div class="dossier-header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="dossier-title">Forensic Suspect Dossier</div>
+          <button id="close-dossier-btn" class="control-btn" style="padding: 2px 6px;">✕</button>
+        </div>
+        <div id="dossier-slick-id" class="dossier-subtitle">SLICK-2026-MALACCA-0881</div>
+
+        <!-- Incident Physical Metrics Grid -->
+        <div class="incident-metrics-grid">
+          <div class="metric-tile">
+            <div class="tile-label">Slick Area / Perimeter</div>
+            <div id="metric-area-val" class="tile-value">14.80 km²</div>
+          </div>
+          <div class="metric-tile">
+            <div class="tile-label">Fay's Spreading Age</div>
+            <div id="metric-age-val" class="tile-value">4.50 Hours</div>
+          </div>
+          <div class="metric-tile">
+            <div class="tile-label">CMEMS Surface Drift</div>
+            <div id="metric-drift-val" class="tile-value">1.45 kn (SW)</div>
+          </div>
+          <div class="metric-tile">
+            <div class="tile-label">ERA5 10m Wind Speed</div>
+            <div id="metric-wind-val" class="tile-value">14.20 kn</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ranked Suspect Vessels List -->
+      <div id="suspects-list-container" class="suspects-scroll-list">
+        <!-- Dynamic Suspect Cards populated by app.js -->
+        <div style="color: var(--text-muted); text-align: center; padding: 20px;">
+          Calculating PostGIS spatial corridor intersections...
+        </div>
+      </div>
+
+      <!-- Action Footer with Court-Admissible PDF Export -->
+      <div class="dossier-footer">
+        <button id="generate-pdf-btn" class="btn-court-pdf">
+          <span>📜</span>
+          <span>Generate Court-Admissible Audit PDF</span>
+        </button>
+        <div id="seal-preview-hash" class="crypto-seal-preview">
+          SHA-256 SEAL: <span id="seal-digest-preview">Calculating tamper-evident digest...</span>
+        </div>
+      </div>
+    </aside>
+  </section> <!-- End of view-command-console -->
+
+
+    <!-- ====================================================================
+         VIEW 2: Satellite & Weather Intel Hub
+         ==================================================================== -->
+    <section id="view-satellite-weather" class="operational-view">
+      <div class="view-content-wrapper">
+        <div class="view-header-row">
+          <div>
+            <div class="view-title-main">
+              <span>🛰️</span>
+              <span>Satellite & Marine Weather Intelligence Hub</span>
+              <span class="nav-tab-badge">COPERNICUS & ERA5 LIVE</span>
+            </div>
+            <div class="view-subtitle-desc">
+              Real-time multi-spectral satellite imagery and dynamic oceanographic conditioning feeds.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size: 11px; color: var(--text-muted);">SURVEILLANCE SECTOR:</span>
+            <select id="weather-sector-select" class="control-btn" style="padding: 6px 12px;">
+              <option value="1.2897,103.8501">Malacca Strait / Singapore TSS</option>
+              <option value="11.7000,92.7000">Andaman & Nicobar Sector</option>
+              <option value="10.5600,72.6400">Lakshadweep Sea Basin</option>
+              <option value="20.8000,72.0000">Gulf of Khambhat / Arabian Sea</option>
+              <option value="17.6800,83.2100">Bay of Bengal / Visakhapatnam</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sat-weather-grid">
+          <!-- Left Column: Satellite Categories Catalog -->
+          <div class="sat-categories-card">
+            <div style="font-size: 13px; font-weight: 700; color: #FFFFFF; display: flex; justify-content: space-between; align-items: center;">
+              <span>Satellite Sensor Categories</span>
+              <span style="font-size: 10px; color: var(--accent-cyan);">REAL-TIME FEEDS</span>
+            </div>
+            <div id="satellite-catalog-list" style="display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: calc(100vh - 220px);">
+              <!-- Dynamically populated by app.js -->
+            </div>
+          </div>
+
+          <!-- Right Column: Live Metocean Conditioning Telemetry -->
+          <div class="weather-conditioning-panel">
+            <div class="metocean-live-gauges">
+              <div class="gauge-card">
+                <div class="gauge-header-label">
+                  <span>Significant Wave Height (Hs)</span>
+                  <span id="wave-cond-badge" class="sat-badge" style="background: rgba(16,185,129,0.2); color: #10B981;">CALM</span>
+                </div>
+                <div id="gauge-wave-height" class="gauge-primary-val">1.28 m</div>
+                <div id="gauge-wave-dir" class="gauge-sub-meta">DIR: 215° (SW) | T: 6.4s</div>
+              </div>
+
+              <div class="gauge-card">
+                <div class="gauge-header-label">
+                  <span>Ocean Surface Current</span>
+                  <span class="sat-badge">CMEMS</span>
+                </div>
+                <div id="gauge-current-vel" class="gauge-primary-val">0.82 kn</div>
+                <div id="gauge-current-dir" class="gauge-sub-meta">DIR: 305° (NW) | 0.42 m/s</div>
+              </div>
+
+              <div class="gauge-card">
+                <div class="gauge-header-label">
+                  <span>10m Surface Wind Field</span>
+                  <span id="gauge-beaufort-badge" class="sat-badge">BF 4</span>
+                </div>
+                <div id="gauge-wind-spd" class="gauge-primary-val">14.5 kn</div>
+                <div id="gauge-wind-gust" class="gauge-sub-meta">GUST: 19.6 kn | 220° (SW)</div>
+              </div>
+
+              <div class="gauge-card">
+                <div class="gauge-header-label">
+                  <span>Sea Surface Temp & Baro</span>
+                  <span class="sat-badge">SST</span>
+                </div>
+                <div id="gauge-sst" class="gauge-primary-val">28.2 °C</div>
+                <div id="gauge-baro" class="gauge-sub-meta">BARO: 1009.2 hPa (STABLE)</div>
+              </div>
+            </div>
+
+            <!-- Spill Dispersion Conditioning Factor -->
+            <div class="sat-categories-card" style="padding: 16px;">
+              <div style="font-size: 12.5px; font-weight: 700; color: #FFFFFF; margin-bottom: 8px;">
+                Hydrodynamic Dispersion & Spreading Forecast Index
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 11px;">
+                <div style="background: #0B0F17; padding: 10px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <div style="color: var(--text-muted);">ESTIMATED 24H DRIFT</div>
+                  <div id="dispersion-drift-rate" style="font-family: var(--text-mono); font-size: 16px; font-weight: 700; color: var(--accent-cyan); margin-top: 4px;">62.4 km / 24h</div>
+                </div>
+                <div style="background: #0B0F17; padding: 10px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <div style="color: var(--text-muted);">24H VOLATILE EVAPORATION</div>
+                  <div id="dispersion-evap-rate" style="font-family: var(--text-mono); font-size: 16px; font-weight: 700; color: var(--uncertainty-amber); margin-top: 4px;">38.5% Loss</div>
+                </div>
+                <div style="background: #0B0F17; padding: 10px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <div style="color: var(--text-muted);">FAY RADIAL EXPANSION</div>
+                  <div id="dispersion-fay-factor" style="font-family: var(--text-mono); font-size: 16px; font-weight: 700; color: #10B981; margin-top: 4px;">1.42x / 6h</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active Sensor Details Viewport -->
+            <div class="sat-categories-card" style="flex: 1; min-height: 240px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span id="active-sat-title" style="font-size: 13px; font-weight: 700; color: #FFFFFF;">Sentinel-1 SAR C-Band Synthetic Aperture Radar (Active Sensor)</span>
+                <span id="active-sat-badge" class="sat-badge">ALL-WEATHER RADAR</span>
+              </div>
+              <div id="active-sat-details" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 11.5px;">
+                <div style="background: #0D131F; padding: 10px; border-radius: 6px;">
+                  <span style="color: var(--text-muted); font-size: 10px;">RESOLUTION:</span>
+                  <div id="active-sat-res" style="font-weight: 700; color: #FFFFFF; font-family: var(--text-mono); margin-top: 2px;">10m GSD</div>
+                </div>
+                <div style="background: #0D131F; padding: 10px; border-radius: 6px;">
+                  <span style="color: var(--text-muted); font-size: 10px;">SPECTRUM / BAND:</span>
+                  <div id="active-sat-band" style="font-weight: 700; color: #FFFFFF; font-family: var(--text-mono); margin-top: 2px;">C-Band 5.405 GHz (VV)</div>
+                </div>
+                <div style="background: #0D131F; padding: 10px; border-radius: 6px;">
+                  <span style="color: var(--text-muted); font-size: 10px;">DAMPING CONTRAST:</span>
+                  <div id="active-sat-contrast" style="font-weight: 700; color: var(--accent-cyan); font-family: var(--text-mono); margin-top: 2px;">-5.2 dB (Slick Damped)</div>
+                </div>
+                <div style="background: #0D131F; padding: 10px; border-radius: 6px;">
+                  <span style="color: var(--text-muted); font-size: 10px;">SWATH COVERAGE:</span>
+                  <div id="active-sat-swath" style="font-weight: 700; color: #FFFFFF; font-family: var(--text-mono); margin-top: 2px;">250 km (IW Mode)</div>
+                </div>
+              </div>
+              <div style="margin-top: 14px; background: #0B0F17; border-radius: 6px; padding: 12px 16px; border: 1px dashed var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 11.5px; font-weight: 700; color: #FFFFFF;">Zero-Watermark Free Cartographic Pipeline</div>
+                  <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 2px;">Esri World Dark Gray Canvas & World Imagery (No API Key Required)</div>
+                </div>
+                <button id="switch-to-map-view-btn" class="control-btn" style="border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                  View on 4D Map ➔
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 3: Live AIS Fleet Radar
+         ==================================================================== -->
+    <section id="view-ais-fleet" class="operational-view">
+      <div class="view-content-wrapper">
+        <div class="view-header-row">
+          <div>
+            <div class="view-title-main">
+              <span>🚢</span>
+              <span>Live AIS Fleet Radar & Dynamic Kinematics</span>
+              <span class="nav-tab-badge live-pulse-badge">REAL-TIME TELEMETRY</span>
+            </div>
+            <div class="view-subtitle-desc">
+              Surveillance of vessel movements advancing live along geodetic corridors with anomaly tracking.
+            </div>
+          </div>
+          <div class="ais-fleet-controls">
+            <input type="text" id="ais-search-box" class="search-input" style="width: 280px;" placeholder="Search MMSI, IMO, Name, or Flag..." />
+            <button class="filter-chip active ais-filter-chip" data-risk="all">All Vessels</button>
+            <button class="filter-chip ais-filter-chip" data-risk="suspect">Suspects Only (>70%)</button>
+            <button class="filter-chip ais-filter-chip" data-risk="patrol">Patrol Cutters</button>
+          </div>
+        </div>
+
+        <div class="ais-fleet-grid">
+          <!-- Fleet Table -->
+          <div class="fleet-table-wrapper">
+            <div style="padding: 12px 16px; background: #0D131F; border-bottom: 1px solid var(--border-subtle); font-size: 12px; font-weight: 700; color: #FFFFFF; display: flex; justify-content: space-between;">
+              <span>Dynamic Vessel Registry (Auto-Advancing Geodesic Positions)</span>
+              <span id="ais-live-indicator" style="color: #10B981; font-family: var(--text-mono); font-size: 11px;">● 1 Hz TICK STREAM</span>
+            </div>
+            <div style="overflow-y: auto; max-height: calc(100vh - 220px);">
+              <table class="fleet-table">
+                <thead>
+                  <tr>
+                    <th>Vessel / MMSI</th>
+                    <th>Type & Flag</th>
+                    <th>Current Coordinates</th>
+                    <th>SOG / COG</th>
+                    <th>Nav Status</th>
+                    <th>Forensic Tier</th>
+                  </tr>
+                </thead>
+                <tbody id="ais-fleet-tbody">
+                  <!-- Injected by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Vessel Detailed Telemetry Inspector -->
+          <div id="vessel-inspector-panel" class="vessel-inspector-card">
+            <div style="font-size: 13px; font-weight: 800; color: #FFFFFF; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+              Vessel Telemetry & Forensic Profile
+            </div>
+            <div id="vessel-inspector-content">
+              <div style="color: var(--text-muted); text-align: center; padding: 40px 0;">
+                Click any vessel from the fleet table to inspect real-time kinematics and blackouts.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 4: Hindcast Laboratory (Interactive What-If Simulation)
+         ==================================================================== -->
+    <section id="view-hindcast-lab" class="operational-view">
+      <div class="view-content-wrapper">
+        <div class="view-header-row">
+          <div>
+            <div class="view-title-main">
+              <span>⚙️</span>
+              <span>Hindcast Laboratory & What-If Hydrodynamic Modeling</span>
+              <span class="nav-tab-badge">RK4 MONTE CARLO</span>
+            </div>
+            <div class="view-subtitle-desc">
+              Tune oceanographic diffusion parameters, leeway factors, and run real-time what-if simulations.
+            </div>
+          </div>
+          <button id="reset-lab-params-btn" class="control-btn">⟲ Reset Calibrated Defaults</button>
+        </div>
+
+        <div class="hindcast-lab-grid">
+          <!-- Parameter Tuning Sliders -->
+          <div class="slider-group-card">
+            <div style="font-size: 13px; font-weight: 800; color: #FFFFFF; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+              Oceanographic & Dispersion Parameters
+            </div>
+
+            <!-- Kh Slider -->
+            <div class="param-slider-block">
+              <div class="param-label-row">
+                <span class="param-name">Horizontal Eddy Diffusivity (Kh)</span>
+                <span id="val-kh" class="param-val-pill">10.0 m²/s</span>
+              </div>
+              <input type="range" id="slider-kh" min="1.0" max="50.0" step="0.5" value="10.0" class="scrubber-range-input" />
+              <div class="param-desc">Governs turbulent sub-grid ocean mixing and spatial dispersion spread.</div>
+            </div>
+
+            <!-- Alpha Slider -->
+            <div class="param-slider-block">
+              <div class="param-label-row">
+                <span class="param-name">Wind Leeway Factor (α)</span>
+                <span id="val-alpha" class="param-val-pill">3.0 %</span>
+              </div>
+              <input type="range" id="slider-alpha" min="1.0" max="6.0" step="0.1" value="3.0" class="scrubber-range-input" />
+              <div class="param-desc">Direct surface wind shear drag imparted onto hydrocarbon slick boundary.</div>
+            </div>
+
+            <!-- Fay Spreading Slider -->
+            <div class="param-slider-block">
+              <div class="param-label-row">
+                <span class="param-name">Fay Spreading Coefficient</span>
+                <span id="val-fay" class="param-val-pill">1.14</span>
+              </div>
+              <input type="range" id="slider-fay" min="0.50" max="2.50" step="0.05" value="1.14" class="scrubber-range-input" />
+              <div class="param-desc">Gravity-viscous regime expansion rate based on crude oil interfacial tension.</div>
+            </div>
+
+            <!-- Duration Slider -->
+            <div class="param-slider-block">
+              <div class="param-label-row">
+                <span class="param-name">Reverse Hindcast Window (-dt)</span>
+                <span id="val-duration" class="param-val-pill">12.0 Hours</span>
+              </div>
+              <input type="range" id="slider-duration" min="2.0" max="24.0" step="1.0" value="12.0" class="scrubber-range-input" />
+              <div class="param-desc">Backward integration horizon to reconstruct release origin timestamp.</div>
+            </div>
+
+            <!-- Particles Slider -->
+            <div class="param-slider-block">
+              <div class="param-label-row">
+                <span class="param-name">Lagrangian Particles</span>
+                <span id="val-particles" class="param-val-pill">10,000</span>
+              </div>
+              <input type="range" id="slider-particles" min="1000" max="25000" step="1000" value="10000" class="scrubber-range-input" />
+              <div class="param-desc">Stochastic particle count for Monte Carlo covariance calculation.</div>
+            </div>
+
+            <div class="lab-action-row">
+              <button id="run-whatif-sim-btn" class="btn-lab-sim">
+                <span>⚡</span>
+                <span>Run What-If Simulation</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sensitivity & What-If Comparison Results -->
+          <div class="slider-group-card">
+            <div style="font-size: 13px; font-weight: 800; color: #FFFFFF; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; display: flex; justify-content: space-between;">
+              <span>Simulation Sensitivity & Uncertainty Analysis</span>
+              <span id="lab-sim-status" style="font-size: 10px; color: var(--accent-cyan); font-family: var(--text-mono);">READY</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px;">
+              <div style="background: #0B0F17; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px;">
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Estimated Origin Lat/Lon</div>
+                <div id="lab-result-origin" style="font-size: 14px; font-weight: 800; color: #FFFFFF; font-family: var(--text-mono); margin-top: 4px;">1.3410°N, 103.7820°E</div>
+              </div>
+              <div style="background: #0B0F17; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px;">
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">95% Uncertainty Ellipse</div>
+                <div id="lab-result-area" style="font-size: 14px; font-weight: 800; color: var(--uncertainty-amber); font-family: var(--text-mono); margin-top: 4px;">28.4 km²</div>
+              </div>
+              <div style="background: #0B0F17; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 12px;">
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Attribution Shift</div>
+                <div id="lab-result-shift" style="font-size: 14px; font-weight: 800; color: var(--accent-cyan); font-family: var(--text-mono); margin-top: 4px;">PACIFIC VOYAGER (94%)</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 14px; background: #080D16; border-radius: 6px; padding: 16px; border: 1px solid var(--border-subtle); flex: 1; display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-weight: 700; color: #FFFFFF; font-size: 12px;">Comparative Analysis vs. Calibrated Baseline</div>
+              <p style="color: var(--text-secondary); font-size: 11.5px; line-height: 1.5;">
+                Varying the Horizontal Eddy Diffusivity (Kh) from 10.0 to higher values increases the Gaussian spreading covariance of the particle cloud, expanding the 95% origin uncertainty ellipse. The Leeway factor α directly shifts the centroid upwind/downwind. In all scenarios with α in the 2.5%–3.5% range, the reverse drift path intersects the AIS trajectory of <b>PACIFIC VOYAGER (MMSI: 352001928)</b> within the 12-hour corridor window.
+              </p>
+              <div style="display: flex; gap: 8px; margin-top: auto;">
+                <button id="apply-lab-to-command-btn" class="control-btn" style="flex: 1; border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                  Apply Parameters to 4D Command Console ➔
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 5: Legal Audit & Reports
+         ==================================================================== -->
+    <section id="view-legal-audit" class="operational-view">
+      <div class="view-content-wrapper">
+        <div class="view-header-row">
+          <div>
+            <div class="view-title-main">
+              <span>⚖️</span>
+              <span>MARPOL Annex I Legal Audit & Cryptographic Verification</span>
+              <span class="nav-tab-badge verified-badge">CHAIN OF CUSTODY VERIFIED</span>
+            </div>
+            <div class="view-subtitle-desc">
+              Certified court-admissible forensic registry, immutable SHA-256 seal verification, and MARPOL reporting.
+            </div>
+          </div>
+          <button id="audit-download-pdf-btn" class="control-btn" style="background: #10B981; border-color: #10B981; color: #0B0F17; font-weight: 700;">
+            📥 Download Certified Court PDF
+          </button>
+        </div>
+
+        <div class="legal-audit-grid">
+          <!-- Audit Ledger Table -->
+          <div class="fleet-table-wrapper">
+            <div style="padding: 12px 16px; background: #0D131F; border-bottom: 1px solid var(--border-subtle); font-size: 12px; font-weight: 700; color: #FFFFFF; display: flex; justify-content: space-between;">
+              <span>Immutable Operational Audit Trail (HMAC-SHA256 Chained)</span>
+              <span style="color: var(--accent-cyan); font-family: var(--text-mono); font-size: 11px;">TAMPER-EVIDENT</span>
+            </div>
+            <div style="overflow-y: auto; max-height: calc(100vh - 220px);">
+              <table class="audit-ledger-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Operator Role</th>
+                    <th>Action</th>
+                    <th>Cryptographic Seal Digest</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-ledger-tbody">
+                  <!-- Injected by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Cryptographic Seal Verification Widget -->
+          <div class="seal-verifier-card">
+            <div style="font-size: 13px; font-weight: 800; color: #FFFFFF; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+              Verify Cryptographic Seal
+            </div>
+            <p style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4;">
+              Paste any SHA-256 case digest or document hash to verify authenticity against the court-certified registry.
+            </p>
+            <input type="text" id="verify-hash-input" class="search-input" placeholder="Paste SHA-256 hash here..." />
+            <button id="verify-hash-btn" class="control-btn" style="border-color: var(--accent-cyan); color: var(--accent-cyan); justify-content: center;">
+              Verify Digest Integrity
+            </button>
+            <div id="verify-result-box" style="padding: 12px; border-radius: 6px; font-size: 11.5px; display: none;">
+              <!-- Verification result text -->
+            </div>
+
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; font-size: 11px; color: var(--text-secondary);">
+              <div><b>PGP Fingerprint:</b> <code style="color: var(--accent-cyan);">9F82 C14D E3A1 B829 4F2C</code></div>
+              <div style="margin-top: 4px;"><b>Jurisdiction:</b> Maritime and Port Authority / Indian EEZ Court</div>
+              <div style="margin-top: 4px;"><b>Standard:</b> MARPOL 73/78 Annex I & III Evidence Code</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div> <!-- End of app-root -->
+
+
+  <!-- Role Switching / Auth Modal -->
+  <div id="auth-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: #111827; border: 1px solid var(--border-subtle); border-radius: 10px; width: 440px; padding: 24px; box-shadow: var(--shadow-hud);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 15px; font-weight: 700; color: #FFFFFF;">Naval Console Operator Identity</h3>
+        <button id="close-auth-modal-btn" style="background: transparent; border: none; color: #94A3B8; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;">
+        Switch operator role to verify granular Role-Based Access Control (RBAC) authorization.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button class="control-btn role-select-btn" data-username="commander" style="justify-content: flex-start; padding: 10px;">
+          <b>COAST GUARD COMMANDER</b> (Capt. Vikramaditya Rawat) — Full Interception Clearance
+        </button>
+        <button class="control-btn role-select-btn" data-username="analyst" style="justify-content: flex-start; padding: 10px;">
+          <b>MARITIME ANALYST</b> (Dr. Priya Nair) — Simulation Tuning & Hydrodynamic Forensics
+        </button>
+        <button class="control-btn role-select-btn" data-username="auditor" style="justify-content: flex-start; padding: 10px;">
+          <b>FORENSIC AUDITOR</b> (Adv. Rajesh Sengupta) — Legal Chain of Custody & PDF Seal
+        </button>
+        <button class="control-btn role-select-btn" data-username="viewer" style="justify-content: flex-start; padding: 10px;">
+          <b>PUBLIC VIEWER</b> (Duty Watch) — Read-Only Live Monitoring
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="/static/src/app.js"></script>
+</body>
+</html>
