@@ -115,8 +115,8 @@ python train_all_models.py
 
 ### 2. Clone and Setup Environment
 ```bash
-git clone https://github.com/your-username/hydrotrace-ai.git
-cd hydrotrace-ai
+git clone https://github.com/DikshitJalui12/SIH26-Hydro_Trace_AI.git
+cd SIH26-Hydro_Trace_AI
 
 # Create virtual environment
 python -m venv .venv

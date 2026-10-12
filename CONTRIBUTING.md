@@ -8,8 +8,8 @@ Thank you for contributing to the **HydroTrace-AI Maritime Command Platform**! W
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/your-org/hydrotrace-ai.git
-   cd hydrotrace-ai
+   git clone https://github.com/DikshitJalui12/SIH26-Hydro_Trace_AI.git
+   cd SIH26-Hydro_Trace_AI
    ```
 
 2. **Create a Python Virtual Environment**:
